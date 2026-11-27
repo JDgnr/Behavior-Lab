@@ -2,6 +2,13 @@ import streamlit as st
 from datetime import datetime
 import pandas as pd
 from pathlib import Path
+from analytics import (
+    calculate_average,
+    calculate_summary,
+    calculate_correlations
+)
+from storage import save_entry, load_history
+
 st.title("🧠 BehaviorLab")
 st.header("Daily Check-In")
 mood = st.slider("How are you feeling today?",
@@ -25,45 +32,34 @@ stress = st.slider(
 exercise = st.checkbox("Did you exercise today?")
 notes = st.text_area("Anything you want to remember?")
 
-timestamp = datetime.now()
-st.write(timestamp)
-
-entry = {
-    'timestamp': timestamp,
-    'mood': mood,
-    'sleep': sleep,
-    'stress': stress,
-    'exercise': exercise,
-    'notes': notes
-}
-
-st.write(entry)
-df = pd.DataFrame([entry])
-st.dataframe(df)
-
 file_path = Path("data/mood_log.csv")
-file_path.parent.mkdir(parents=True, exist_ok=True)
 
 if st.button("💾 Save Entry"):
-    df.to_csv(
-        file_path,
-        mode="a",
-        index=False,
-        header=not file_path.exists()
-    )
-st.success("Entry saved!")
+    timestamp = datetime.now()
 
+    entry = {
+        "timestamp": timestamp,
+        "mood": mood,
+        "sleep": sleep,
+        "stress": stress,
+        "exercise": exercise,
+        "notes": notes
+    }
+    df = pd.DataFrame([entry])
+
+    save_entry(df, file_path)
+    st.success("Entry saved!") 
+     
 st.header("Check-In History")
 if file_path.exists():
-    history = pd.read_csv(file_path)
-    history["timestamp"] = pd.to_datetime(history["timestamp"])
+    history = load_history(file_path)
     st.dataframe(history)
 
     st.header("Descriptive Statistics")
 
-    average_mood = history["mood"].mean()
-    average_sleep = history["sleep"].mean()
-    average_stress = history["stress"].mean()
+    average_mood = calculate_average(history, "mood")
+    average_sleep = calculate_average(history, "sleep")
+    average_stress = calculate_average(history, "stress")
 
     col1, col2, col3 = st.columns(3)
 
@@ -73,7 +69,7 @@ if file_path.exists():
 
     st.header("Summary Statistics")
 
-    summary = history[["mood", "sleep", "stress"]].describe()
+    summary = calculate_summary(history)
     st.dataframe(summary)
 
     st.header("Mood and Stress Over Time")
@@ -86,7 +82,7 @@ if file_path.exists():
 
     st.header("Correlation Analysis")
 
-    correlations = history[["mood", "sleep", "stress"]].corr()
+    correlations = calculate_correlations(history)
 
     st.dataframe(correlations) 
     
